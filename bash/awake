@@ -1,0 +1,117 @@
+#!/bin/bash
+#
+# This script was generated with ChatGPT
+# awake-time.sh - Show awake time since last resume.
+# With -a: show full awake/suspend timeline + totals since boot.
+#
+
+print_help() {
+    echo "View uptime that the system has been awake and suspended."
+    echo "Will output uptime since last suspend if no options are given."
+    echo "Options:"
+    echo " -a   Include a timeline of suspend status as well as total uptime breakdown."
+    echo " -h   Show this message."
+}
+
+format_duration() {
+    local sec=$1
+    local h=$(( sec/3600 ))
+    local m=$(( (sec%3600)/60 ))
+    local s=$(( sec%60 ))
+    printf "%02dh %02dm %02ds" "$h" "$m" "$s"
+}
+
+print_summary() {
+    # Get last resume time
+    last_resume=$(journalctl --dmesg --grep="PM: suspend exit" -n1 --output=short-unix | \
+                  awk '{print $1}' | cut -d. -f1)
+
+    if [ -z "$last_resume" ] | [ "$last_resume" == "--" ]; then
+        echo "Could not detect last resume time (no suspend events found)."
+        exit 1
+    fi
+
+    now=$(date +%s)
+    diff=$(( now - last_resume ))
+
+    days=$(( diff/86400 ))
+    hours=$(( (diff%86400)/3600 ))
+    mins=$(( (diff%3600)/60 ))
+    secs=$(( diff%60 ))
+
+    out="up"
+    [ $days -gt 0 ] && out="$out $days day(s)"
+    [ $hours -gt 0 ] && out="$out $hours hour(s)"
+    [ $mins -gt 0 ] && out="$out $mins minute(s)"
+    [ $secs -gt 0 ] && out="$out $secs second(s)"
+
+    echo "$out since last resume"
+}
+
+print_timeline() {
+    echo "System sleep/wake timeline:"
+    echo
+
+    total_sleep=0
+    last_suspend=""
+    last_resume=""
+
+    # Get suspend/resume events
+    events=$(journalctl --dmesg --grep="PM: suspend" --output=short-unix | \
+        awk '{ts=$1; sub(/\..*/,"",ts);
+              if ($0 ~ /suspend entry/) print ts,"SUSPEND";
+              else if ($0 ~ /suspend exit/) print ts,"RESUME"; }' | sort -n)
+
+    while read -r ts state; do
+        [ -z "$ts" ] && continue
+        t_human=$(date -d @"$ts" "+%Y-%m-%d %H:%M:%S")
+        if [ "$state" = "SUSPEND" ]; then
+            echo "Suspend: $t_human"
+            last_suspend=$ts
+        else
+            echo "Resume:  $t_human"
+            if [ -n "$last_suspend" ]; then
+                dur=$(( ts - last_suspend ))
+                total_sleep=$(( total_sleep + dur ))
+                printf "   Slept for: %s\n" "$(format_duration $dur)"
+                last_suspend=""
+            fi
+            last_resume=$ts
+        fi
+    done <<< "$events"
+
+    # Add current awake session
+    now=$(date +%s)
+    if [ -n "$last_resume" ]; then
+        dur=$(( now - last_resume ))
+        t_human=$(date -d @"$now" "+%Y-%m-%d %H:%M:%S")
+        echo "Now:     $t_human"
+        printf "   Awake for: %s\n" "$(format_duration $dur)"
+    fi
+
+    # Totals since boot
+    boot_ts=$(date -d "$(uptime -s)" +%s)
+    total_elapsed=$(( now - boot_ts ))
+    total_awake=$(( total_elapsed - total_sleep ))
+
+    echo
+    echo "Totals since boot:"
+    echo "   Slept: $(format_duration $total_sleep)"
+    echo "   Awake: $(format_duration $total_awake)"
+}
+
+# --- Main ---
+# Exit if user is not root.
+if [ "$EUID" -ne 0 ]; then
+    echo "This script must be run with sudo or as root."
+    exit 1
+fi
+
+if [ "$1" = "-a" ]; then
+    print_timeline
+elif [ "$1" = "-h" ]; then
+    print_help
+else
+    print_summary
+fi
+

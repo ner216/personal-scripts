@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+
+#Built in imports
+import os
+import subprocess
+import sys
+
+#Get user who is running script
+original_user = os.environ.get('SUDO_USER') or os.getlogin()
+
+#Global variables
+PARENT_DIRECTORIES = [f"/home/{original_user}/Documents/",
+    "/home/git/",
+    "/home/Git/",
+    f"/home/{original_user}/git/",
+    f"/home/{original_user}/Git/"
+    ]
+#ANSI colors
+YELLOW = "\033[33m"
+BLUE = "\033[34m"
+RED = "\033[31m"
+RESET = "\033[0m" #Reset default to color
+
+def find_local_repositories() -> list: 
+    repositories = []
+
+    #Check if directories in DIRECTORIES variable exist and return repos
+    for directory in PARENT_DIRECTORIES:
+        if os.path.isdir(directory):
+            os.chdir(directory)
+            for child_directory in os.listdir(directory):
+                if os.path.isdir(f"{directory}{child_directory}/.git"):
+                    repositories.append(f"{directory}{child_directory}")
+    
+    return repositories
+
+
+def status_repos(repositories: list) -> None:
+    for repo in repositories:
+        print(f"{YELLOW}[GITY] -> Executing git status on [{repo}]{RESET}")
+        try:
+            os.chdir(repo)
+            status_result = subprocess.run(['git', 'status'], capture_output=True, text=True)
+            return_code = subprocess.call(['git', 'status'])
+        except Exception as e:
+            print(f"{RED}[GITY] -> Error, unable to execute git status on {repo}\n Exception: {e}{RESET}")
+
+def main():
+    #Variables
+    local_repositories = find_local_repositories()
+    #Flag variables
+    status_arg = False
+    help_arg = False
+    version_info = False
+    list_local_repos = False
+    
+    #Process arguments
+    for arg in sys.argv:
+        if arg == "list":
+            list_local_repos = True
+        if arg == "stat" or arg == "status":
+            status_arg = True
+        if arg == "help":
+            help_arg = True
+        if arg == "ver" or arg == "version":
+            version_info = True
+
+    #Run based on arguments
+    if status_arg == True:
+        status_repos(local_repositories)
+    elif list_local_repos == True:
+        print("Parent directories Gity will search:")
+        for parent in PARENT_DIRECTORIES:
+            print(f" -- {parent}")
+        print("Repositories Found:")
+        for repo in local_repositories:
+            print(f" -- {repo}")
+    elif help_arg == True:
+        print("Commands: ")
+        print(" -- List parent directories: gity list")
+        print(" -- Get status on all repositories: gity [stat/status]")
+        print(" -- Get version info: gity [version/ver]")
+    elif version_info == True:
+        print("Version: 0.1")
+        print("Creator: Nolan Provencher")
+        print("GitHub: https://github.com/ner216/linux_scripts")
+    else:
+        print("Invalid or unknown options used.")
+        print("Get help with: `gity help`")
+
+main()
+

@@ -1,0 +1,88 @@
+#!/bin/bash
+
+
+# Check for existance of git command
+if ! command -v git >>/dev/null 2>&1; then
+    printf "Git command not found!\n"
+    exit 1
+fi
+
+# Print help message
+print_helpp() {
+    echo " Usage: 'lsgit [OPTIONS]'"
+    echo " With no options:"
+    echo "  - Search for Git repos in user home dir."
+    echo "  - Execute 'git status' on each repo."
+    echo " With options:"
+    echo "  -'-a' Search entire system rather than just home dir."
+    echo "  -'-l' List found repos without running 'git status'."
+    echo "  -'-h' Show help message."
+}
+
+# Return a list of repositories
+find_home_repos() {
+    repos=$(find /home/$USER/ -name '.git' | sed 's/\/.git//')
+}
+find_all_repos() {
+    repos=$(find / -name '.git' | sed 's/\/.git//')
+}
+
+
+# Print list of repos found for user
+print_repo_list() {
+    printf "Git repositories found:\n"
+    printf "$repos\n"
+}
+
+
+# Run git status on found repos
+git_status() {
+    for i in $repos; do
+        cd $i >>/dev/null 2>&1
+        printf "\e[1;33m[lsgit] git status on $PWD \e[0m\n"
+        git status
+        printf "\n"
+    done
+}
+
+# Option flags
+all=0     # Search entire filesystem for repos rather than just '/home'
+list=0     # List git repos without executing 'git status'
+helpp=0     # Display help message
+
+# Parse arguments
+while getopts ":alh" opt; do
+    case $opt in
+        a)
+            all=1
+            ;;
+        l)
+            list=1
+            ;;
+        h)
+            helpp=1
+            ;;
+        \?)
+            echo "Invalid option -$OPTARG"
+            exit 1
+            ;;
+    esac
+done
+
+# Program run logic
+if [ $helpp -eq 1 ]; then
+    print_helpp
+    exit 0
+fi
+
+if [ $all -eq 1 ]; then
+    find_all_repos
+else
+    find_home_repos
+fi
+
+if [ $list -eq 1 ]; then
+    print_repo_list
+else
+    git_status # Run git status if list arg is not given.
+fi
