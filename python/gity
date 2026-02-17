@@ -85,8 +85,7 @@ def main():
         print("Creator: Nolan Provencher")
         print("GitHub: https://github.com/ner216/linux_scripts")
     else:
-        print("Invalid or unknown options used.")
-        print("Get help with: `gity help`")
+        status_repos(local_repositories)
 
 main()
 
