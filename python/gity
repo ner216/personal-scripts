@@ -8,8 +8,6 @@ import sys
 # Get user who is running script
 original_user = os.environ.get('SUDO_USER') or os.getlogin()
 
-# Global variables
-DEFAULT_SEARCH = [f"/home/{original_user}/Git/", f"/home/{original_user}/git/"]
 HOME_SEARCH = [f"/home/{original_user}/"]
 
 # ANSI colors
@@ -63,7 +61,6 @@ def main():
     local_repositories = []
     # Flag variables
     help_arg = False
-    search_home_arg = False
     version_info = False
     list_local_repos = False
     
@@ -71,8 +68,6 @@ def main():
     for arg in sys.argv:
         if arg == "list":
             list_local_repos = True
-        if arg == "-h" or arg == "--home":
-            search_home_arg = True
         if arg == "help":
             help_arg = True
         if arg == "ver" or arg == "version":
@@ -85,22 +80,15 @@ def main():
             print(f" -- {repo}")
     elif help_arg == True:
         print("Commands: ")
-        print("By default with no options, Gity will only search ~/Git and ~/git")
-        print("If you wish to search your home directory recursivly, use the --home/-h option.")
+        print(" With no arguments, Gity will execute git status on all repositories.")
         print(" -- List directory search options: gity list")
-        print(" -- Get status on all repositories in home directory: gity [--home/-h]")
         print(" -- Get version info: gity [version/ver]")
     elif version_info == True:
         print("Version: 0.1")
         print("Creator: Nolan Provencher")
         print("GitHub: https://github.com/ner216/linux_scripts")
-    elif search_home_arg == True:
-        local_repositories = find_repositories(HOME_SEARCH, recursive = True)
-        # Execute git status on discovered repos
-        status_repos(local_repositories)
-    # Default case where gity has no args
     elif len(sys.argv) == 1:
-        local_repositories = find_repositories(DEFAULT_SEARCH)
+        local_repositories = find_repositories(HOME_SEARCH, recursive = True)
         # Execute git status on discovered repos
         status_repos(local_repositories)
     else:
