@@ -1,39 +1,46 @@
 #!/usr/bin/env python3
 
-#Built in imports
+# Built in imports
 import os
 import subprocess
 import sys
 
-#Get user who is running script
+# Get user who is running script
 original_user = os.environ.get('SUDO_USER') or os.getlogin()
 
-#Global variables
-PARENT_DIRECTORIES = [f"/home/{original_user}/Documents/",
-    "/home/git/",
-    "/home/Git/",
-    f"/home/{original_user}/git/",
-    f"/home/{original_user}/Git/"
-    ]
-#ANSI colors
+# Global variables
+DEFAULT_SEARCH = [f"/home/{original_user}/Git/", f"/home/{original_user}/git/"]
+HOME_SEARCH = [f"/home/{original_user}/"]
+
+# ANSI colors
 YELLOW = "\033[33m"
 BLUE = "\033[34m"
 RED = "\033[31m"
 RESET = "\033[0m" #Reset default to color
 
-def find_local_repositories() -> list: 
+# A wrapper for the find_repositories_recursive which allows for the search of multiple parent directories
+def find_repositories(directory_list: list) -> list: 
     repositories = []
-
-    #Check if directories in DIRECTORIES variable exist and return repos
-    for directory in PARENT_DIRECTORIES:
-        if os.path.isdir(directory):
-            os.chdir(directory)
-            for child_directory in os.listdir(directory):
-                if os.path.isdir(f"{directory}{child_directory}/.git"):
-                    repositories.append(f"{directory}{child_directory}")
+    
+    for directory in directory_list:
+        repositories.extend(find_repositories_recursive(directory))
     
     return repositories
-
+    
+# A recursive function that walks(iterates) through directories to find '.git' directories
+def find_repositories_recursive(root: str, repositories: list = None):
+    if repositories == None:
+        repositories = []
+    
+    if os.path.isdir(root):
+        os.chdir(root)
+        for child_directory in os.listdir(root):
+            child_path = f"{root}{child_directory}"
+            if os.path.isdir(child_path + "/.git"):
+                repositories.append(child_path)
+            elif os.path.isdir(child_path) and child_directory[0] != ".":
+                find_repositories_recursive(child_path + "/", repositories)
+    return repositories
 
 def status_repos(repositories: list) -> None:
     for repo in repositories:
@@ -46,46 +53,55 @@ def status_repos(repositories: list) -> None:
             print(f"{RED}[GITY] -> Error, unable to execute git status on {repo}\n Exception: {e}{RESET}")
 
 def main():
-    #Variables
-    local_repositories = find_local_repositories()
-    #Flag variables
-    status_arg = False
+    # Variables
+    local_repositories = []
+    # Flag variables
     help_arg = False
+    search_home_arg = False
     version_info = False
     list_local_repos = False
     
-    #Process arguments
+    # Set flag variables with arguments
     for arg in sys.argv:
         if arg == "list":
             list_local_repos = True
-        if arg == "stat" or arg == "status":
-            status_arg = True
+        if arg == "-h" or arg == "--home":
+            search_home_arg = True
         if arg == "help":
             help_arg = True
         if arg == "ver" or arg == "version":
             version_info = True
 
-    #Run based on arguments
-    if status_arg == True:
-        status_repos(local_repositories)
-    elif list_local_repos == True:
-        print("Parent directories Gity will search:")
-        for parent in PARENT_DIRECTORIES:
-            print(f" -- {parent}")
-        print("Repositories Found:")
-        for repo in local_repositories:
+    # Process arguments
+    if list_local_repos == True:
+        print(f"{YELLOW}Directories Gity will search with no options:{RESET}")
+        for directory in DEFAULT_SEARCH:
+            print(f" -- {directory}")
+        print(f"{YELLOW}Directories Gity will search with [-h/--home] option:{RESET}")
+        for directory in HOME_SEARCH:
+            print(f" -- {directory}")
+        print(f"{YELLOW}All repositories in your home directory:{RESET}")
+        for repo in find_repositories(HOME_SEARCH):
             print(f" -- {repo}")
     elif help_arg == True:
         print("Commands: ")
-        print(" -- List parent directories: gity list")
-        print(" -- Get status on all repositories: gity [stat/status]")
+        print(" -- List directory search options: gity list")
+        print(" -- Get status on all repositories in home directory: gity [--home/-h]")
         print(" -- Get version info: gity [version/ver]")
     elif version_info == True:
         print("Version: 0.1")
         print("Creator: Nolan Provencher")
         print("GitHub: https://github.com/ner216/linux_scripts")
-    else:
+    elif len(sys.argv) == 1:
+        if search_home_arg == True:
+            local_repositories = find_repositories(HOME_SEARCH)
+        else:
+            local_repositories = find_repositories(DEFAULT_SEARCH)
+        
+        # Execute git status on discovered repos
         status_repos(local_repositories)
+    else:
+        print("Unknown argument given! Use 'gity help' for more information.")
 
 main()
 
