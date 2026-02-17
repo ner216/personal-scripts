@@ -80,17 +80,13 @@ def main():
 
     # Process arguments
     if list_local_repos == True:
-        print(f"{YELLOW}Directories Gity will search with no options:{RESET}")
-        for directory in DEFAULT_SEARCH:
-            print(f" -- {directory}")
-        print(f"{YELLOW}Directories Gity will search with [-h/--home] option:{RESET}")
-        for directory in HOME_SEARCH:
-            print(f" -- {directory}")
         print(f"{YELLOW}All repositories in your home directory:{RESET}")
         for repo in find_repositories(HOME_SEARCH, recursive = True):
             print(f" -- {repo}")
     elif help_arg == True:
         print("Commands: ")
+        print("By default with no options, Gity will only search ~/Git and ~/git")
+        print("If you wish to search your home directory recursivly, use the --home/-h option.")
         print(" -- List directory search options: gity list")
         print(" -- Get status on all repositories in home directory: gity [--home/-h]")
         print(" -- Get version info: gity [version/ver]")
