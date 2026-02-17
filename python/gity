@@ -19,11 +19,17 @@ RED = "\033[31m"
 RESET = "\033[0m" #Reset default to color
 
 # A wrapper for the find_repositories_recursive which allows for the search of multiple parent directories
-def find_repositories(directory_list: list) -> list: 
+def find_repositories(directory_list: list, recursive: bool = False) -> list: 
     repositories = []
     
     for directory in directory_list:
-        repositories.extend(find_repositories_recursive(directory))
+        if recursive == True:
+            repositories.extend(find_repositories_recursive(directory))
+        else:
+            if os.path.isdir(directory) == True:
+                for child_directory in os.listdir(directory):
+                        if os.path.isdir(f"{directory}{child_directory}/.git"):
+                            repositories.append(f"{directory}{child_directory}")
     
     return repositories
     
@@ -81,7 +87,7 @@ def main():
         for directory in HOME_SEARCH:
             print(f" -- {directory}")
         print(f"{YELLOW}All repositories in your home directory:{RESET}")
-        for repo in find_repositories(HOME_SEARCH):
+        for repo in find_repositories(HOME_SEARCH, recursive = True):
             print(f" -- {repo}")
     elif help_arg == True:
         print("Commands: ")
@@ -92,12 +98,13 @@ def main():
         print("Version: 0.1")
         print("Creator: Nolan Provencher")
         print("GitHub: https://github.com/ner216/linux_scripts")
+    elif search_home_arg == True:
+        local_repositories = find_repositories(HOME_SEARCH, recursive = True)
+        # Execute git status on discovered repos
+        status_repos(local_repositories)
+    # Default case where gity has no args
     elif len(sys.argv) == 1:
-        if search_home_arg == True:
-            local_repositories = find_repositories(HOME_SEARCH)
-        else:
-            local_repositories = find_repositories(DEFAULT_SEARCH)
-        
+        local_repositories = find_repositories(DEFAULT_SEARCH)
         # Execute git status on discovered repos
         status_repos(local_repositories)
     else:
