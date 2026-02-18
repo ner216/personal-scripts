@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+# Imports
+import subprocess
+import argparse
+import os
+
+SET_PERFORMANCE = "echo performance | sudo tee /sys/firmware/acpi/platform_profile"
+SET_BALANCED = "echo balanced | sudo tee /sys/firmware/acpi/platform_profile"
+SET_QUIET = "echo quiet | sudo tee /sys/firmware/acpi/platform_profile"
+CURRENT_MODE = "cat /sys/firmware/acpi/platform_profile"
+
+def set_mode(mode: str) -> None:
+    try:
+        status_result = subprocess.run(mode, shell=True ,capture_output=True, text=True)
+        print(f"Mode switched to: {status_result.stdout}")
+    except Exception as e:
+        print("[ERROR] Unable to change power mode")
+        exit(status_result.returncode)
+
+def print_mode() -> None:
+    os.system(CURRENT_MODE)
+
+def main():
+    
+
+    parser = argparse.ArgumentParser(description="Change platform power modes.")
+
+    parser.add_argument("-s", "--set", type=str, help="Specify power mode to switch to [performance|balanced|quiet]")
+    parser.add_argument("-q", "--query", action="store_true", help="View the current power mode")
+
+    args = parser.parse_args()
+
+    if args.query == True:
+        print_mode()
+    else:
+        if os.geteuid() != 0:
+            exit("You need to have root privileges to run this script.")
+
+        if args.set == "performance":
+            set_mode(SET_PERFORMANCE)
+        elif args.set == "balanced":
+            set_mode(SET_BALANCED)
+        elif args.set == "quiet":
+            set_mode(SET_QUIET)
+        else:
+            print("Invalid options; use 'power-mode --help'")
+
+main()
