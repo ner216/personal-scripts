@@ -9,7 +9,18 @@ import sys
 original_user = os.environ.get('SUDO_USER') or os.getlogin()
 
 # Global variables
-DEFAULT_SEARCH = [f"/home/{original_user}/Git/", f"/home/{original_user}/git/"]
+DEFAULT_SEARCH = [
+    f"/home/{original_user}/Git/",
+    f"/home/{original_user}/git/",
+    f"/home/{original_user}/src/",
+    f"/home/{original_user}/Src/",
+    f"/home/{original_user}/dev/",
+    f"/home/{original_user}/Dev/",
+    f"/home/{original_user}/projects/",
+    f"/home/{original_user}/Projects/",
+    f"/home/{original_user}/project/",
+    f"/home/{original_user}/Project/"
+]
 HOME_SEARCH = [f"/home/{original_user}/"]
 
 # ANSI colors
