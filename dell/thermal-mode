@@ -8,6 +8,7 @@ import os
 SET_PERFORMANCE = "echo performance | sudo tee /sys/firmware/acpi/platform_profile"
 SET_BALANCED = "echo balanced | sudo tee /sys/firmware/acpi/platform_profile"
 SET_QUIET = "echo quiet | sudo tee /sys/firmware/acpi/platform_profile"
+SET_COOL = "echo cool | sudo tee /sys/firmware/acpi/platform_profile"
 CURRENT_MODE = "cat /sys/firmware/acpi/platform_profile"
 
 def set_mode(mode: str) -> None:
@@ -43,6 +44,8 @@ def main():
             set_mode(SET_BALANCED)
         elif args.set == "quiet":
             set_mode(SET_QUIET)
+        elif args.set == "cool":
+            set_mode(SET_COOL)
         else:
             print("Invalid options; use 'thermal-mode --help'")
 
