@@ -111,6 +111,14 @@ main() {
         exit 1
     fi
     
+    read -p "Remove unnecessary packages? [yelp, info] (y/n)> " choice
+    if [ $choice == "y" ]; then
+        apt remove yelp info -y
+    elif [ $choice != "n" ]; then
+        printf "Invalid input!\n"
+        exit 1
+    fi
+    
     printf "All done! Please reboot system.\n"
 }
 
