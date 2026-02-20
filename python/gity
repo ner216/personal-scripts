@@ -67,33 +67,62 @@ def status_repos(repositories: list) -> None:
         except Exception as e:
             print(f"{RED}[GITY] -> Error, unable to execute git status on {repo}\n Exception: {e}{RESET}")
 
+def fetch_repos(repositories: list) -> None:
+    for repo in repositories:
+        print(f"{YELLOW}[GITY] -> Executing git fetch on [{repo}]{RESET}")
+        try:
+            os.chdir(repo)
+            status_result = subprocess.run(['git', 'fetch'], capture_output=True, text=True)
+            return_code = subprocess.call(['git', 'fetch'])
+        except Exception as e:
+            print(f"{RED}[GITY] -> Error, unable to execute git fetch on {repo}\n Exception: {e}{RESET}")
+
+def pull_repos(repositories: list) -> None:
+    for repo in repositories:
+        print(f"{YELLOW}[GITY] -> Executing git pull on [{repo}]{RESET}")
+        try:
+            os.chdir(repo)
+            status_result = subprocess.run(['git', 'pull'], capture_output=True, text=True)
+            return_code = subprocess.call(['git', 'pull'])
+        except Exception as e:
+            print(f"{RED}[GITY] -> Error, unable to execute git pull on {repo}\n Exception: {e}{RESET}")
+
 def main():
-    parser = argparse.ArgumentParser(description="Run git-status on all local repositories at once. Without arguments, Gity will search directories specified in 'gity --list' up to 3 levels.")
+    parser = argparse.ArgumentParser(description="Run git-status on all local repositories at once. Without arguments, Gity will search directories specified in 'gity --show-default' up to 3 levels and execute git status on them.")
     
+    parser.add_argument("-f", "--fetch", action="store_true", help="Execute git fetch on all repos found by Gity.")
+    parser.add_argument("-p", "--pull", action="store_true", help="Execute git pull on all repos found by Gity.")
     parser.add_argument("-l", "--list", action="store_true", help="List all repositories Gity found in the current home directory.")
     parser.add_argument("--show-default", action="store_true", help="Show search paths Gity will use when no arguments are given.")
     parser.add_argument("-a", "--all", action="store_true", help="Recursivly search entire home directory rather than default directories.")
     
     args = parser.parse_args()
     
-    if len(sys.argv) == 1:
+    # Create list of repositories depending on the '-a' search option
+    if args.all:
+        local_repositories = find_repositories(HOME_SEARCH)
+    else:
         local_repositories = find_repositories(DEFAULT_SEARCH, level_limit = 3)
+
+    # Interpret options
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and args.all):
         # Execute git status on discovered repos
         status_repos(local_repositories)
-    elif args.list:
-        print(f"{YELLOW}All repositories in your home directory:{RESET}")
-        for repo in find_repositories(HOME_SEARCH):
+    elif args.fetch:
+        fetch_repos(local_repositories)
+    elif args.pull:
+        pull_repos(local_repositories)
+    elif args.list and len(sys.argv) <= 3:
+        print(f"{YELLOW}Repositories found by Gity:{RESET}")
+        for repo in local_repositories:
             print(f" -- {repo}")
-    elif args.show_default:
-        print("By default with no options, Gity will only search the following directories up to 3 levels:")
+    elif args.show_default and len(sys.argv) == 2:
+        print("By default with no options, \nGity will only search and run git status the following directories up to 3 levels:")
         for repo in DEFAULT_SEARCH:
             print(f" -- {repo}")
-    elif args.all:
-        local_repositories = find_repositories(HOME_SEARCH)
-        # Execute git status on discovered repos
-        status_repos(local_repositories)
+    else:
+        print("Invalid options used; use 'gity --help' for more information.")
+        exit(1)
     
-        
-
 main()
 
