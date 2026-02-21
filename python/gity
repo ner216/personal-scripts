@@ -91,7 +91,7 @@ def pull_repos(repositories: list) -> None:
 def get_repository_path(possible_repository_name: str) -> None:
     for path in find_repositories(DEFAULT_SEARCH):
         destination_name = Path(path).name
-        if possible_repository_name == destination_name:
+        if possible_repository_name in destination_name:
             print(path)
             exit(0)
     print(f"Could not locate a repository with the name {possible_repository_name}")
@@ -101,8 +101,8 @@ def setup_jump():
     setup_command = r'echo "jp() { cd \"\$(gity -g \"\$@\")\" && git status; }" >> ~/.bashrc'
     try:
         subprocess.run(setup_command, shell=True, check=True)
-        print("Success! 'jump' function added to ~/.bashrc. Run 'source ~/.bashrc' to use it.")
-        print("You can now jump to a repo using 'jump <repo-name>'")
+        print("Success! 'jp' function added to ~/.bashrc. Run 'source ~/.bashrc' to use it.")
+        print("You can now jump to a repo using 'jp <repo-name>'")
     except Exception as e:
         print(f"[ERROR] Failed to write jump function to bashrc.\n Err: {e}")
 
