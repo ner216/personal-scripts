@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import argparse
+from pathlib import Path
 
 # Get user who is running script
 original_user = os.environ.get('SUDO_USER') or os.getlogin()
@@ -87,7 +88,26 @@ def pull_repos(repositories: list) -> None:
         except Exception as e:
             print(f"{RED}[GITY] -> Error, unable to execute git pull on {repo}\n Exception: {e}{RESET}")
 
+def get_repository_path(possible_repository_name: str) -> None:
+    for path in find_repositories(DEFAULT_SEARCH):
+        destination_name = Path(path).name
+        if possible_repository_name == destination_name:
+            print(path)
+            exit(0)
+    print(f"Could not locate a repository with the name {possible_repository_name}")
+    exit(1)
+
+def setup_jump():
+    setup_command = r'echo "jp() { cd \"\$(gity -g \"\$@\")\" && git status; }" >> ~/.bashrc'
+    try:
+        subprocess.run(setup_command, shell=True, check=True)
+        print("Success! 'jump' function added to ~/.bashrc. Run 'source ~/.bashrc' to use it.")
+        print("You can now jump to a repo using 'jump <repo-name>'")
+    except Exception as e:
+        print(f"[ERROR] Failed to write jump function to bashrc.\n Err: {e}")
+
 def main():
+
     parser = argparse.ArgumentParser(description="Run git-status on all local repositories at once. Without arguments, Gity will search directories specified in 'gity --show-default' up to 3 levels and execute git status on them.")
     
     parser.add_argument("-f", "--fetch", action="store_true", help="Execute git fetch on all repos found by Gity.")
@@ -95,6 +115,8 @@ def main():
     parser.add_argument("-l", "--list", action="store_true", help="List all repositories Gity found in the current home directory.")
     parser.add_argument("--show-default", action="store_true", help="Show search paths Gity will use when no arguments are given.")
     parser.add_argument("-a", "--all", action="store_true", help="Recursivly search entire home directory rather than default directories.")
+    parser.add_argument("-g", "--get-path", type=str, help="Prints the path for a specified repository name. (used for jump)")
+    parser.add_argument("-j", "--jump-setup", action="store_true", help="Create alias to use the jump shortcut feature.")
     
     args = parser.parse_args()
     
@@ -104,9 +126,9 @@ def main():
     else:
         local_repositories = find_repositories(DEFAULT_SEARCH, level_limit = 3)
 
+    
     # Interpret options
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and args.all):
-        # Execute git status on discovered repos
         status_repos(local_repositories)
     elif args.fetch:
         fetch_repos(local_repositories)
@@ -120,6 +142,11 @@ def main():
         print("By default with no options, \nGity will only search and run git status the following directories up to 3 levels:")
         for repo in DEFAULT_SEARCH:
             print(f" -- {repo}")
+    elif args.get_path:
+        possible_repository_name = args.get_path
+        print(get_repository_path(possible_repository_name.strip()))
+    elif args.jump_setup:
+        setup_jump()
     else:
         print("Invalid options used; use 'gity --help' for more information.")
         exit(1)
