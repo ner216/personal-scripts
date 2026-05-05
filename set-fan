@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Bash script to set the nvidia-settings fan speed.
+
+# Make script exit if a command fails
+set -e
+
+# Constants
+MAX_SPEED="80"
+MID_SPEED="60"
+MIN_SPEED="42"
+
+# Terminal Colors
+YELLOW="\e[1;33m"
+RESET="\e[0m"
+
+# Takes a boolean value for control mode (1 for manual, 0 for auto)
+set_fan_control_mode() {
+    setting=${1}
+
+    printf "${YELLOW}Setting manual fan control to ${setting}...\n${RESET}"
+    nvidia-settings -a [gpu:0]/GPUFanControlState=${setting}
+}
+
+# Takes a speed value argument
+set_fan_speed() {
+    set_fan_control_mode 1
+    new_speed_arg=${1}
+    
+    printf "${YELLOW}Setting fan speed to ${new_speed_arg}\n${RESET}"
+    nvidia-settings -a [fan:0]/GPUTargetFanSpeed=${new_speed_arg}
+}
+
+main() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "This script must be run with sudo or as root."
+        exit 1
+    fi
+    
+    if [ "$1" == "max" ]; then
+        set_fan_speed ${MAX_SPEED}
+    elif [ "$1" == "mid" ]; then
+        set_fan_speed ${MID_SPEED}
+    elif [ "$1" == "min" ]; then
+        set_fan_speed ${MIN_SPEED}
+    elif [ "$1" == "auto" ]; then
+        set_fan_control_mode 0
+    else
+        printf "Invalid argument: $1\n"
+        printf "Available args: max, mid, min, auto\n"
+        exit 1
+    fi
+}
+
+main $1
+
+
+
