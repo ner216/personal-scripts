@@ -1,8 +1,6 @@
 #!/bin/env bash
 
-# WARNING: THIS IS AN AI-GENERATED AND UNTESTED SCRIPT
-
-#!/bin/env bash
+# WARNING: THIS IS AN AI-GENERATED AND HARDENED CONFIGURATION SCRIPT
 
 # START OF USER CONFIGURATION SECTION -------------------------------------------------------------------------------------------
 
@@ -13,7 +11,7 @@ UPDATE_SYSTEM=1                         # Update and upgrade packages with apt
 ADD_DEFAULT_GNOME_SESSION=0             # Add default Gnome session with tweaks and extension manager
 REPLACE_SNAP_STORE_W_GNOME_SOFTWARE=1   # Replace snap-store with gnome-software (with plugins for snap/flatpak if configured)
 
-CONFIGURE_FLATPAK=0                     # Configure system to use flatpak
+CONFIGURE_FLATPAK=1                     # Configure system to use flatpak
 REMOVE_SNAP_FROM_SYSTEM=0               # Fully uninstall snaps and snapd from the system
 
 # WARNING: The HIDE_SNAP_FOLDER action only works if the only snaps installed are those that were preinstalled with the system.
@@ -50,8 +48,19 @@ if [[ "$UBUNTU_VERSION" != "24.04" && "$UBUNTU_VERSION" != "26.04" ]]; then
 fi
 
 # ==========================================
-# UTILITY & SNAP MAP FUNCTIONS
+# UTILITY & ENVIRONMENT GUARD FUNCTIONS
 # ==========================================
+
+# Asserts command presence dynamically before executing steps
+assert_cmd() {
+    local cmd="$1"
+    local feature_desc="$2"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo -e "${YELLOW}[SKIP] Required command '${cmd}' is missing. Skipping: ${feature_desc}${RESET}"
+        return 1
+    fi
+    return 0
+}
 
 # Returns the version-specific list of snaps to remove sequentially
 get_snap_list() {
@@ -78,7 +87,6 @@ check_snap_folder() {
             echo "The old ~/snap folder is NOT empty."
             echo "Current contents:"
             ls -A "$SNAP_DIR"
-            exit 0
         fi
     else
         echo "The ~/snap folder does not exist. Your config is already clean!"
@@ -90,10 +98,18 @@ check_snap_folder() {
 # ==========================================
 
 update_system() {
+    assert_cmd "apt" "Update & Upgrade System" || return 0
     apt update -y && apt upgrade -y
 }
 
 hide_snap_folder() {
+    if [ "$REMOVE_SNAP_FROM_SYSTEM" -eq 1 ]; then
+        echo -e "${YELLOW}[SKIP] 'Completely Remove Snap' is enabled. Hiding folder is redundant.${RESET}"
+        return 0
+    fi
+
+    assert_cmd "snap" "Hide ~/snap/ Folder" || return 0
+
     printf "Removing individual snap packages in target order...\n"
     local snaps
     snaps=$(get_snap_list)
@@ -108,7 +124,41 @@ hide_snap_folder() {
     check_snap_folder
 }
 
+replace_store_w_software() {
+    assert_cmd "apt" "Replace Snap Store with GNOME Software" || return 0
+
+    if command -v snap >/dev/null 2>&1; then
+        snap remove --purge snap-store || true
+    fi
+
+    apt install gnome-software -y
+
+    if command -v snap >/dev/null 2>&1; then
+        apt install gnome-software-plugin-snap -y
+    fi
+
+    if command -v flatpak >/dev/null 2>&1; then
+        apt install gnome-software-plugin-flatpak -y
+    fi
+}
+
+setup_flatpak() {
+    assert_cmd "apt" "Configure Flatpak" || return 0
+    apt install -y flatpak
+    
+    assert_cmd "flatpak" "Adding Flathub Repository" || return 0
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+}
+
+setup_default_gnome() {
+    assert_cmd "apt" "Install Default GNOME Session" || return 0
+    apt install -y gnome-session gnome-shell-extension-manager gnome-tweaks
+}
+
 remove_snap() {
+    assert_cmd "snap" "Completely Remove Snap" || return 0
+    assert_cmd "apt" "Purging snapd Infrastructure" || return 0
+
     local USER_HOME
     USER_HOME=$(eval echo "~${SUDO_USER:-$USER}")
 
@@ -127,28 +177,6 @@ remove_snap() {
     apt autoremove -y
 }
 
-replace_store_w_software() {
-    snap remove --purge snap-store || true
-    apt install gnome-software -y
-
-    if command -v snap >/dev/null 2>&1; then
-        apt install gnome-software-plugin-snap -y
-    fi
-
-    if command -v flatpak >/dev/null 2>&1; then
-        apt install gnome-software-plugin-flatpak -y
-    fi
-}
-
-setup_flatpak() {
-    apt install -y flatpak
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-}
-
-setup_default_gnome() {
-    apt install -y gnome-session gnome-shell-extension-manager gnome-tweaks
-}
-
 # ==========================================
 # SYSTEM CORE & EXECUTION
 # ==========================================
@@ -156,7 +184,7 @@ setup_default_gnome() {
 main() {
     # High-Visibility Environment Warning Block
     echo -e "${RED}#################################################################"
-    echo -e "                            WARNING                              "
+    echo -e "                                WARNING                                  "
     echo -e "#################################################################"
     echo -e " This optimization script is strictly designed to be executed on "
     echo -e " a FRESH, CLEAN INSTALLATION of Ubuntu.                         "
@@ -164,23 +192,29 @@ main() {
     echo -e " delete localized configs, or purge user applications unexpectedly."
     echo -e "#################################################################${RESET}\n"
 
-    # Parallel Arrays Configuration Framework
-    local CONFIG_VARS=(  "$UPDATE_SYSTEM"         "$HIDE_SNAP_FOLDER"    "$ADD_DEFAULT_GNOME_SESSION"    "$CONFIGURE_FLATPAK"    "$REMOVE_SNAP_FROM_SYSTEM"    "$REPLACE_SNAP_STORE_W_GNOME_SOFTWARE" )
-    local DESCRIPTIONS=( "Update & Upgrade System" "Hide ~/snap/ Folder"  "Install Default GNOME Session" "Configure Flatpak"     "Completely Remove Snap"      "Replace Snap Store with GNOME Software" )
-    local FUNCTIONS=(    "update_system"          "hide_snap_folder"     "setup_default_gnome"           "setup_flatpak"         "remove_snap"                 "replace_store_w_software" )
+    # CRITICAL: Ordered from least disruptive/constructive to structural removals
+    # This prevents 'remove_snap' from destroying snap binary paths required by 'replace_store_w_software'
+    local CONFIG_VARS=(  "$UPDATE_SYSTEM"         "$ADD_DEFAULT_GNOME_SESSION"    "$CONFIGURE_FLATPAK"    "$REPLACE_SNAP_STORE_W_GNOME_SOFTWARE" "$HIDE_SNAP_FOLDER"          "$REMOVE_SNAP_FROM_SYSTEM" )
+    local DESCRIPTIONS=( "Update & Upgrade System" "Install Default GNOME Session" "Configure Flatpak"    "Replace Snap Store with GNOME Software" "Hide ~/snap/ Folder"      "Completely Remove Snap" )
+    local FUNCTIONS=(    "update_system"           "setup_default_gnome"           "setup_flatpak"         "replace_store_w_software"             "hide_snap_folder"          "remove_snap" )
 
     local active_count=0
 
     echo -e "========================================="
-    echo -e "       UBUNTU CONFIGURATION PLAN         "
+    echo -e "        UBUNTU CONFIGURATION PLAN         "
     echo -e "  [Detected OS Target Version: ${GREEN}${UBUNTU_VERSION}${RESET}]"
     echo -e "========================================="
     
     # Preview loop
     for i in "${!CONFIG_VARS[@]}"; do
         if [ "${CONFIG_VARS[$i]}" -eq 1 ]; then
-            echo -e " [${GREEN}ENABLED${RESET}]  --> ${DESCRIPTIONS[$i]}"
-            active_count=$((active_count + 1))
+            # Warn user of automatic override visibility inside configuration plan preview
+            if [[ "${FUNCTIONS[$i]}" == "hide_snap_folder" && "$REMOVE_SNAP_FROM_SYSTEM" -eq 1 ]]; then
+                echo -e " [${YELLOW}OVERRIDDEN${RESET}] --> ${DESCRIPTIONS[$i]} (Will be bypassed by Snap Removal)"
+            else
+                echo -e " [${GREEN}ENABLED${RESET}]  --> ${DESCRIPTIONS[$i]}"
+                active_count=$((active_count + 1))
+            fi
         else
             echo -e " [${RED}DISABLED${RESET}] --> ${DESCRIPTIONS[$i]}"
         fi
@@ -205,18 +239,20 @@ main() {
             local current_func="${FUNCTIONS[$i]}"
             local current_desc="${DESCRIPTIONS[$i]}"
 
-            echo -e "\n${YELLOW}>>> [STARTING] Will perform action: ${current_desc} in 6 seconds...${RESET}"
-            sleep 6
+            echo -e "\n${YELLOW}>>> [STARTING] Will perform action: ${current_desc} in 3 seconds...${RESET}"
+            sleep 3
 
-            # Call functional target assignment
-            $current_func
-
-            echo -e "${GREEN}>>> [SUCCESS] ${current_desc} completed successfully.${RESET}"
+            # Call functional target assignment safely
+            if $current_func; then
+                echo -e "${GREEN}>>> [SUCCESS] ${current_desc} step sequence processed.${RESET}"
+            else
+                echo -e "${RED}>>> [WARNING] ${current_desc} ran into unexpected non-fatal errors.${RESET}"
+            fi
             sleep 1
         fi
     done
 
-    echo -e "\n${GREEN}All selected optimization tasks finished successfully!${RESET}\n"
+    echo -e "\n${GREEN}All selected optimization tasks finished processing!${RESET}\n"
 }
 
 # Run program
